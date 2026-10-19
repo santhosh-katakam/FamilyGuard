@@ -1,5 +1,7 @@
 # Verification — 19 October 2026
 
+**Deployment follow-up:** the project was subsequently deployed to Render. Real PostgreSQL migration, deployed HTTPS login/refresh/logout, database health and the authenticated WebSocket handshake passed. The Android APK was rebuilt with actual deployed URLs. See [RENDER-DEPLOYMENT.md](RENDER-DEPLOYMENT.md) for the current environment. The original workspace-only results and remaining hardware checks below are retained as history.
+
 This file records checks actually run in this workspace. Source creation is not deployment or runtime acceptance.
 
 ## Passed

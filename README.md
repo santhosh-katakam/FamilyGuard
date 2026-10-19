@@ -1,5 +1,7 @@
 # FamilyGuard
 
+**Free Render test deployment:** [Open FamilyGuard](https://familyguard-9urq.onrender.com). See [deployed URLs, verified checks and login-file location](docs/RENDER-DEPLOYMENT.md). The free API can sleep and the test database expires on 18 November 2026.
+
 A one-parent / one-child family safety monorepo with a React dashboard, authenticated Spring Boot API, PostgreSQL migrations, and a real native Java Android module. All dashboard data comes from the API; no activity fixtures or simulated monitoring are shipped.
 
 **Status:** implemented baseline requiring deployment and real-device acceptance. See [verification results](docs/VERIFICATION.md) for commands actually run and outstanding checks. Do not treat code generation as production certification. Background FCM push is not configured; alerts appear in the open dashboard and persisted alert list.

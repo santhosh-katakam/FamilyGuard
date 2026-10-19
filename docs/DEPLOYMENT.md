@@ -1,5 +1,7 @@
 # Render deployment
 
+The user's free test deployment is now live. Use [RENDER-DEPLOYMENT.md](RENDER-DEPLOYMENT.md) for its actual URLs, credentials-file location and verified checks. The instructions below describe provisioning a separate environment.
+
 Use familyguard/ as the repository root so render.yaml's relative rootDir paths resolve. Create your own Git repository and push these sources. Create a Render Blueprint from render.yaml. The blueprint currently provisions a free testing web service, a static React site, and a free managed PostgreSQL database in Singapore. Free services can sleep and free databases expire after 30 days. Review current plan availability/costs in Render before provisioning. No Render account or production secrets have been supplied in this workspace; nothing is deployed by generating these files.
 
 Set ADMIN_EMAIL and a random ADMIN_PASSWORD of at least 14 characters. Generate JWT_SECRET and DATA_ENCRYPTION_KEY **separately** using a cryptographically secure generator: each is base64 of 32 random bytes. In PowerShell, `[Convert]::ToBase64String([System.Security.Cryptography.RandomNumberGenerator]::GetBytes(32))` works on modern PowerShell; otherwise use your password manager or `openssl rand -base64 32`. Store them in Render's secret environment fields. Do not share logs containing secrets. Keep the encryption key backed up separately; losing it makes existing event payloads unreadable. Key rotation requires re-encryption, not simply changing the variable.

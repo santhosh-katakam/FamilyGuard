@@ -1,4 +1,4 @@
 # Android Studio generates sdk.dir automatically. Use forward slashes on Windows.
 sdk.dir=C\:/Users/YOUR_NAME/AppData/Local/Android/Sdk
-familyguard.apiUrl=https://familyguard-api-YOUR-SLUG.onrender.com
-familyguard.webUrl=https://familyguard-YOUR-SLUG.onrender.com
+familyguard.apiUrl=https://familyguard-api-osj1.onrender.com
+familyguard.webUrl=https://familyguard-9urq.onrender.com
