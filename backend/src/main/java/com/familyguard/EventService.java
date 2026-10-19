@@ -20,6 +20,7 @@ class EventService {
   final PrivacyRepository privacy;
   final ObjectMapper json;
   final ApplicationEventPublisher publisher;
+  final ParentDelivery delivery;
 
   EventService(
       DeviceRepository d,
@@ -34,13 +35,15 @@ class EventService {
       NotificationEventRepository ne,
       CallEventRepository ce,
       LocationHistoryRepository lh,
-      DeviceStatusRepository ds) {
+      DeviceStatusRepository ds,
+      ParentDelivery parentDelivery) {
     devices = d;
     receipts = r;
     alerts = a;
     privacy = p;
     json = j;
     publisher = pub;
+    delivery = parentDelivery;
     repos.put("permissions", ps);
     repos.put("apps", ia);
     repos.put("usage", au);
@@ -146,6 +149,7 @@ class EventService {
       event.occurredAt = input.occurredAt();
       event.payload = safe.toString();
       save(input.category(), event);
+      delivery.enqueue(event, input.category(), safe);
       boolean recent = input.occurredAt().isAfter(Instant.now().minusSeconds(3600));
       if (input.category().equals("status")) {
         if (safe.has("battery")) device.battery = safe.get("battery").asInt();
@@ -177,6 +181,10 @@ class EventService {
               alert(deviceId, "NOTIFICATION", "Selected application notification event");
           }
           case "location" -> geofence(deviceId, safe);
+          case "calls" -> {
+            if (safe.path("state").asText().equals("RINGING"))
+              alert(deviceId, "INCOMING_CALL", "Supported incoming cellular call event");
+          }
         }
       }
     }
@@ -184,6 +192,7 @@ class EventService {
     device.offlineAlerted = false;
     device.lastSeen = Instant.now();
     devices.save(device);
+    delivery.trimEvents();
     publisher.publishEvent(new DataChanged());
     return Map.of(
         "acknowledged", acknowledged, "serverTime", Instant.now(), "preferences", prefs());
@@ -350,6 +359,7 @@ class EventService {
 
   @Transactional
   public void deleteDeviceData() {
+    delivery.clearEvents();
     for (var repo : repos.values()) repo.deleteAllInBatch();
     alerts.deleteAllInBatch();
     receipts.deleteAllInBatch();
@@ -358,5 +368,13 @@ class EventService {
     p.remove("geofenceInside");
     storePrefs(p);
     publisher.publishEvent(new DataChanged());
+  }
+
+  public void eraseParentReceiver() {
+    delivery.eraseReceiver();
+  }
+
+  public void retainParentDeliveries(Instant cutoff) {
+    delivery.retainEvents(cutoff);
   }
 }

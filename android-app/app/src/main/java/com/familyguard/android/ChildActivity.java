@@ -97,6 +97,11 @@ public class ChildActivity extends Activity {
         () -> requestPermissions(new String[] {Manifest.permission.READ_PHONE_STATE}, 11));
     Ui.text(
         this,
+        "Incoming-call alerts use supported cellular RINGING states. Generic OFFHOOK/IDLE states do"
+            + " not identify outgoing calls, completed calls or phone numbers. SMS collection and"
+            + " VoIP interception are not implemented.");
+    Ui.text(
+        this,
         "Notification access does not guarantee every incoming notification or any full chat"
             + " history. Android may hide sensitive notifications. Select apps below; only names"
             + " and event timestamps are shared.");

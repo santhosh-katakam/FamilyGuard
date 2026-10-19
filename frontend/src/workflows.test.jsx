@@ -7,8 +7,9 @@ import {
   fireEvent,
   waitFor,
   cleanup,
+  act,
 } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { BrowserRouter, MemoryRouter } from "react-router-dom";
 vi.mock("react-leaflet", () => ({
   MapContainer: ({ children }) => <div>{children}</div>,
   TileLayer: () => null,
@@ -23,6 +24,7 @@ vi.mock("./api", () => ({
 }));
 import { api } from "./api";
 import {
+  App,
   Login,
   Dashboard,
   Device,
@@ -39,6 +41,30 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 describe("real interface workflows", () => {
+  it("returns from child setup to parent sign in without reloading", async () => {
+    api.post.mockRejectedValue(new Error("No local session"));
+    window.history.replaceState(null, "", "/child-setup");
+    await act(async () => {
+      render(
+        <BrowserRouter>
+          <App />
+        </BrowserRouter>,
+      );
+    });
+    fireEvent.click(
+      screen.getByRole("link", { name: /Return to parent sign in/ }),
+    );
+    expect(
+      await screen.findByRole("button", { name: /Sign in securely/ }),
+    ).toBeTruthy();
+    fireEvent.click(
+      screen.getByRole("link", { name: /Setting up a child device/ }),
+    );
+    expect(
+      screen.getByRole("link", { name: /Return to parent sign in/ }),
+    ).toBeTruthy();
+    window.history.replaceState(null, "", "/");
+  });
   it("does not invent telemetry for an unpaired family", () => {
     page(<Dashboard data={{ device: null }} refresh={() => {}} />);
     expect(screen.getByText("Not paired")).toBeTruthy();

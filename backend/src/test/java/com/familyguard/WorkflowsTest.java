@@ -37,6 +37,9 @@ class WorkflowsTest {
   @Autowired PairingRepository pairings;
   @Autowired NotificationEventRepository notifications;
   @Autowired ReceiptRepository receipts;
+  @Autowired ParentReceiverRepository parentReceivers;
+  @Autowired ParentDeliveryRepository deliveries;
+  @Autowired Realtime realtime;
   @Autowired EncryptedText crypto;
   @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
 
@@ -80,6 +83,221 @@ class WorkflowsTest {
                 .getContentAsString())
         .get("deviceToken")
         .asText();
+  }
+
+  String receiver(boolean replace) throws Exception {
+    return json.readTree(
+            mvc.perform(
+                    post("/api/parent-device/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(
+                            json.writeValueAsString(
+                                Map.of(
+                                    "email",
+                                    "parent@example.test",
+                                    "password",
+                                    "testing-parent-password",
+                                    "deviceName",
+                                    "Parent phone",
+                                    "replace",
+                                    replace))))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString())
+        .get("receiverToken")
+        .asText();
+  }
+
+  Map<String, Object> activity(String category, String kind, String pkg, Map<String, Object> data) {
+    var row = new LinkedHashMap<String, Object>();
+    row.put("id", UUID.randomUUID());
+    row.put("category", category);
+    row.put("kind", kind);
+    row.put("occurredAt", Instant.now().toString());
+    row.put("data", data);
+    if (pkg != null) row.put("packageName", pkg);
+    return row;
+  }
+
+  void syncActivities(String child, List<Map<String, Object>> rows) throws Exception {
+    mvc.perform(
+            post("/api/device/sync")
+                .header("Authorization", "Bearer " + child)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json.writeValueAsString(Map.of("events", rows))))
+        .andExpect(status().isOk());
+  }
+
+  @Test
+  void nativeReceiverIsSingleRevocableAndIsolatedFromOtherRoles() throws Exception {
+    String p = parent(), child = pair(code(p));
+    mvc.perform(
+            post("/api/parent-device/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    "{\"email\":\"parent@example.test\",\"password\":\"incorrect\",\"deviceName\":\"phone\"}"))
+        .andExpect(status().isUnauthorized());
+    String first = receiver(false);
+    mvc.perform(
+            post("/api/parent-device/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    "{\"email\":\"parent@example.test\",\"password\":\"testing-parent-password\",\"deviceName\":\"second\"}"))
+        .andExpect(status().isConflict());
+    assertEquals(1, parentReceivers.count());
+    // Native registration does not invalidate the parent's web login.
+    mvc.perform(get("/api/dashboard").header("Authorization", "Bearer " + p))
+        .andExpect(status().isOk());
+    for (String wrong : List.of(p, child))
+      mvc.perform(get("/api/parent-device/events").header("Authorization", "Bearer " + wrong))
+          .andExpect(status().isUnauthorized());
+    mvc.perform(get("/api/dashboard").header("Authorization", "Bearer " + first))
+        .andExpect(status().isUnauthorized());
+    mvc.perform(
+            post("/api/device/sync")
+                .header("Authorization", "Bearer " + first)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"events\":[]}"))
+        .andExpect(status().isUnauthorized());
+    String second = receiver(true);
+    mvc.perform(get("/api/parent-device/events").header("Authorization", "Bearer " + first))
+        .andExpect(status().isUnauthorized());
+    mvc.perform(get("/api/parent-device/events").header("Authorization", "Bearer " + second))
+        .andExpect(status().isOk());
+    mvc.perform(delete("/api/parent-receiver").header("Authorization", "Bearer " + p))
+        .andExpect(status().isNoContent());
+    mvc.perform(get("/api/parent-device/events").header("Authorization", "Bearer " + second))
+        .andExpect(status().isUnauthorized());
+    assertEquals(0, parentReceivers.count());
+  }
+
+  @Test
+  void durableDeliveryKeepsEveryAppChangeAndOnlyMinimalMetadata() throws Exception {
+    String p = parent(), child = pair(code(p)), r = receiver(false);
+    var rows =
+        List.of(
+            activity("apps", "INSTALLED", "com.example.one", Map.of("label", "One")),
+            activity("apps", "INSTALLED", "com.example.two", Map.of("label", "Two")),
+            activity("apps", "REMOVED", "com.example.one", Map.of("label", "One")),
+            activity(
+                "notifications",
+                "NOTIFICATION",
+                "com.whatsapp",
+                Map.of("text", "PRIVATE BODY", "sender", "PRIVATE SENDER", "count", 999)),
+            activity(
+                "calls",
+                "CALL_STATE",
+                null,
+                Map.of("state", "RINGING", "phoneNumber", "PRIVATE NUMBER")),
+            activity("calls", "CALL_STATE", null, Map.of("state", "OFFHOOK")),
+            activity("calls", "CALL_STATE", null, Map.of("state", "IDLE")));
+    syncActivities(child, rows);
+    syncActivities(child, rows);
+    assertEquals(5, deliveries.count());
+    mvc.perform(
+            post("/api/parent-device/ack")
+                .header("Authorization", "Bearer " + r)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"cursor\":999999}"))
+        .andExpect(status().isBadRequest());
+    var response =
+        json.readTree(
+            mvc.perform(get("/api/parent-device/events").header("Authorization", "Bearer " + r))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.events.length()").value(5))
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+    for (var row : response.get("events")) {
+      Set<String> fields = new HashSet<>();
+      row.fieldNames().forEachRemaining(fields::add);
+      assertEquals(
+          Set.of("sequence", "id", "category", "kind", "packageName", "occurredAt", "receivedAt"),
+          fields);
+    }
+    assertFalse(response.toString().contains("PRIVATE"));
+    assertTrue(response.toString().contains("INCOMING_CALL"));
+    long next = response.get("nextCursor").asLong();
+    for (int i = 0; i < 2; i++)
+      mvc.perform(
+              post("/api/parent-device/ack")
+                  .header("Authorization", "Bearer " + r)
+                  .contentType(MediaType.APPLICATION_JSON)
+                  .content("{\"cursor\":" + next + "}"))
+          .andExpect(status().isNoContent());
+    assertEquals(0, deliveries.count());
+    syncActivities(child, rows);
+    mvc.perform(get("/api/parent-device/events").header("Authorization", "Bearer " + r))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.events.length()").value(0));
+  }
+
+  @Test
+  void privacyRevocationFiltersPendingDeliveryAndUnpairingErasesTheQueue() throws Exception {
+    String p = parent(), child = pair(code(p)), r = receiver(false);
+    syncActivities(
+        child,
+        List.of(
+            activity(
+                "notifications", "NOTIFICATION", "com.instagram.android", Map.of("count", 1))));
+    var prefs =
+        json.readValue(
+            mvc.perform(get("/api/preferences").header("Authorization", "Bearer " + p))
+                .andReturn()
+                .getResponse()
+                .getContentAsString(),
+            new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {});
+    prefs.put("alertNotifications", false);
+    mvc.perform(
+            put("/api/preferences")
+                .header("Authorization", "Bearer " + p)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json.writeValueAsString(prefs)))
+        .andExpect(status().isOk());
+    mvc.perform(get("/api/parent-device/events").header("Authorization", "Bearer " + r))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.events.length()").value(0));
+    syncActivities(
+        child,
+        List.of(activity("notifications", "NOTIFICATION", "com.whatsapp", Map.of("count", 1))));
+    assertEquals(1, deliveries.count()); // Earlier pending row only; new alerts are disabled.
+    mvc.perform(delete("/api/pairing").header("Authorization", "Bearer " + p))
+        .andExpect(status().isOk());
+    assertEquals(0, deliveries.count());
+    mvc.perform(get("/api/parent-device/events").header("Authorization", "Bearer " + r))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.events.length()").value(0));
+    mvc.perform(delete("/api/account").header("Authorization", "Bearer " + p))
+        .andExpect(status().isOk());
+    assertEquals(0, parentReceivers.count());
+    mvc.perform(get("/api/parent-device/events").header("Authorization", "Bearer " + r))
+        .andExpect(status().isUnauthorized());
+  }
+
+  @Test
+  void nativeTicketsExpireAndAreRevokedWithTheReceiver() throws Exception {
+    String r = receiver(false);
+    var body =
+        json.readTree(
+            mvc.perform(post("/api/parent-device/ticket").header("Authorization", "Bearer " + r))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+    var grant = realtime.consume(body.get("ticket").asText());
+    assertNull(realtime.consume(body.get("ticket").asText()));
+    assertTrue(realtime.authorized(grant));
+    assertNotNull(grant.receiverHash());
+    assertTrue(grant.expiry() > System.currentTimeMillis());
+    assertTrue(grant.expiry() <= System.currentTimeMillis() + 30000);
+    receiver(true);
+    assertFalse(realtime.authorized(grant));
+    var row = parentReceivers.findById(1).orElseThrow();
+    row.expiresAt = Instant.now().minusSeconds(1);
+    parentReceivers.save(row);
+    mvc.perform(get("/api/parent-device/events").header("Authorization", "Bearer " + r))
+        .andExpect(status().isUnauthorized());
   }
 
   @Test

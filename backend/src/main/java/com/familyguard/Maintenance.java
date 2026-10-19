@@ -56,6 +56,10 @@ class Maintenance {
                             ((Number) p.getOrDefault("retentionDays", 30)).intValue()))));
     }
     events.alertRepository().deleteByOccurredAtBefore(before);
+    events.retainParentDeliveries(
+        before.isAfter(Instant.now().minus(Duration.ofDays(7)))
+            ? before
+            : Instant.now().minus(Duration.ofDays(7)));
     events.receiptRepository().deleteByReceivedAtBefore(Instant.now().minus(Duration.ofDays(91)));
     audits.deleteByOccurredAtBefore(Instant.now().minus(Duration.ofDays(90)));
   }

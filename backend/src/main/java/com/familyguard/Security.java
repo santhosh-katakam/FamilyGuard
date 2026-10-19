@@ -31,6 +31,7 @@ class Security {
       Tokens tokens,
       AdminRepository admins,
       DeviceRepository devices,
+      ParentDelivery delivery,
       @Value("${app.origins}") String origins)
       throws Exception {
     var cors = new CorsConfiguration();
@@ -55,10 +56,13 @@ class Security {
                         "/api/auth/refresh",
                         "/api/auth/logout",
                         "/api/pairing/complete",
+                        "/api/parent-device/register",
                         "/ws")
                     .permitAll()
                     .requestMatchers("/api/device/**")
                     .hasRole("DEVICE")
+                    .requestMatchers("/api/parent-device/**")
+                    .hasRole("PARENT_DEVICE")
                     .requestMatchers("/api/**")
                     .hasRole("PARENT")
                     .anyRequest()
@@ -68,7 +72,8 @@ class Security {
                 e.authenticationEntryPoint((q, r, x) -> r.sendError(401))
                     .accessDeniedHandler((q, r, x) -> r.sendError(403)))
         .addFilterBefore(
-            new Guard(tokens, admins, devices, origins), UsernamePasswordAuthenticationFilter.class)
+            new Guard(tokens, admins, devices, delivery, origins),
+            UsernamePasswordAuthenticationFilter.class)
         .build();
   }
 
@@ -76,13 +81,15 @@ class Security {
     final Tokens tokens;
     final AdminRepository admins;
     final DeviceRepository devices;
+    final ParentDelivery delivery;
     final Set<String> origins;
     final Map<String, long[]> limits = new ConcurrentHashMap<>();
 
-    Guard(Tokens t, AdminRepository a, DeviceRepository d, String o) {
+    Guard(Tokens t, AdminRepository a, DeviceRepository d, ParentDelivery pd, String o) {
       tokens = t;
       admins = a;
       devices = d;
+      delivery = pd;
       origins = Set.of(o.split(","));
     }
 
@@ -96,7 +103,10 @@ class Security {
           return;
         }
       }
-      boolean publicEntry = path.equals("/api/auth/login") || path.equals("/api/pairing/complete");
+      boolean publicEntry =
+          path.equals("/api/auth/login")
+              || path.equals("/api/pairing/complete")
+              || path.equals("/api/parent-device/register");
       String auth = q.getHeader("Authorization");
       String identity = auth != null ? Tokens.hash(auth) : q.getRemoteAddr();
       String key = (publicEntry ? path + q.getRemoteAddr() : identity);
@@ -136,7 +146,19 @@ class Security {
                                     d.id.toString(),
                                     null,
                                     List.of(new SimpleGrantedAuthority("ROLE_DEVICE")))));
-          else {
+          else if (path.startsWith("/api/parent-device/")) {
+            String hash = Tokens.hash(token);
+            delivery
+                .authenticate(hash)
+                .ifPresent(
+                    rp ->
+                        SecurityContextHolder.getContext()
+                            .setAuthentication(
+                                new UsernamePasswordAuthenticationToken(
+                                    hash,
+                                    null,
+                                    List.of(new SimpleGrantedAuthority("ROLE_PARENT_DEVICE")))));
+          } else {
             long v = tokens.verify(token);
             admins
                 .findById(1)

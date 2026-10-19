@@ -16,10 +16,14 @@ final class Api {
   record Reply(int code, JSONObject body) {}
 
   static Reply post(String path, String token, JSONObject body) throws Exception {
+    return request("POST", path, token, body);
+  }
+
+  static Reply request(String method, String path, String token, JSONObject body) throws Exception {
     Request.Builder request =
         new Request.Builder()
             .url(BuildConfig.API_URL + path)
-            .post(RequestBody.create(body.toString(), JSON));
+            .method(method, body == null ? null : RequestBody.create(body.toString(), JSON));
     if (token != null) request.header("Authorization", "Bearer " + token);
     try (Response r = CLIENT.newCall(request.build()).execute()) {
       String text = r.body() == null ? "{}" : r.body().string();

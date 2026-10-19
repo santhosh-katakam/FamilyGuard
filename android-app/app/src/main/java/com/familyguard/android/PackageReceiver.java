@@ -4,6 +4,10 @@ import android.content.*;
 
 public class PackageReceiver extends BroadcastReceiver {
   public void onReceive(Context c, Intent i) {
+    if (i == null || i.getAction() == null) return;
+    if ((Intent.ACTION_PACKAGE_ADDED.equals(i.getAction())
+            || Intent.ACTION_PACKAGE_REMOVED.equals(i.getAction()))
+        && i.getBooleanExtra(Intent.EXTRA_REPLACING, false)) return;
     if (!Consent.allowed(c, "apps")) return;
     PendingResult pending = goAsync();
     Events.IO.execute(

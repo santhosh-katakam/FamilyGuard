@@ -2,7 +2,9 @@
 
 Open **familyguard/android-app** as a project in Android Studio, not frontend/. Install Android SDK Platform 36, Build Tools 35.0.0 and Platform Tools through SDK Manager. Set the Gradle JDK to Android Studio's compatible bundled JDK (17 or 21), then sync. The checked-in wrapper uses Gradle 8.13 and Android Gradle Plugin 8.13.0; native source uses Java 17 syntax. The backend separately uses Java 21.
 
-Copy local.properties.example to local.properties (preserve Android Studio's sdk.dir) and replace BOTH API and web URLs with your actual Render HTTPS URLs. Do not add /api to the API base. No real production URL exists until you deploy. The defaults intentionally contain REPLACE and are unusable for pairing. WebView enables JavaScript and DOM storage for React, blocks untrusted top-level navigation and mixed content, and exposes no JavaScript bridge.
+Copy local.properties.example to local.properties (preserve Android Studio's sdk.dir) and configure BOTH API and web URLs. This workspace currently uses the deployed API `https://familyguard-api-osj1.onrender.com` and website `https://familyguard-9urq.onrender.com`. Do not add /api, a query, credentials, or a path to either origin. The build fails for missing values, placeholder hosts or non-HTTPS URLs, and generates `BuildConfig.API_URL` and `BuildConfig.WEB_URL`; native Java reads these fields. WebView enables JavaScript and DOM storage for React, blocks untrusted top-level navigation and mixed content, and exposes no JavaScript bridge.
+
+Configuration precedence: Gradle properties (`-Pfamilyguard.apiUrl=...`, `-Pfamilyguard.webUrl=...`), then environment variables (`FAMILYGUARD_API_URL`, `FAMILYGUARD_WEB_URL`), then ignored local.properties. A trailing slash is normalized. API URLs are configuration, never a place to embed passwords or tokens.
 
 The manifest requests internet/network, optional Usage Access, optional call-state, foreground location, and Android notification permission. There is no microphone, camera, contacts, SMS, READ_CALL_LOG, QUERY_ALL_PACKAGES, accessibility service, device-owner provisioning, or private-message extraction permission. NotificationListenerService is bound only by Android using BIND_NOTIFICATION_LISTENER_SERVICE; enable it through the visible child setup button. Package queries cover launcher applications and four named social apps, so the app inventory is intentionally incomplete. No background-location permission is requested: the user starts a location-type foreground service while the Activity is visible, which may continue in the background. It is not restarted from boot.
 
@@ -10,7 +12,7 @@ The manifest requests internet/network, optional Usage Access, optional call-sta
 
 1. Deploy backend, PostgreSQL and React; verify health and sign-in in a browser.
 2. Connect a real Android 8+ phone, enable Developer Options / USB debugging, select it and Run app. Android 13–16 devices are particularly important for permission tests. Keep the application icon visible.
-3. On the parent's Android phone, install the same APK and choose Parent Admin Mode. Alternatively the one parent can use the React site on a computer. Sign in using the configured admin account.
+3. Install the Parent APK on the parent's phone and the Child APK on the supervised phone. The universal APK remains available for the original two-mode installation. In Parent Mode, sign in to register the one receiver, allow notifications and tap Start live alerts. Open the web dashboard for pairing/administration; its login does not invalidate the native receiver. See [REALTIME-NOTIFICATIONS.md](REALTIME-NOTIFICATIONS.md).
 4. On Device Management generate a 12-character code, valid for five minutes. On the supervised phone choose Child Mode, review and accept the notice, enter the code, then pair. An internet connection is required on both sides; distance is irrelevant.
 5. Enable only agreed local categories. Open Usage Access settings and Notification Access settings if wanted. Grant call-state permission separately. Choose notification applications. Tap Enable monitoring and allow the visible supervision notification. All local category switches default OFF. Disabling notification visibility pauses activity collection; the child app continues reporting minimum connection/permission status while paired.
 6. For location, tap Start location sharing, grant location (approximate is supported), grant the visible notification, then tap Start again. An ongoing notification provides Stop sharing. Review location timestamp and accuracy on the parent's map. Location older than two minutes is marked outdated.
@@ -18,13 +20,16 @@ The manifest requests internet/network, optional Usage Access, optional call-sta
 
 ## Debug APK
 
+The latest generated artifact, checksum, tool verification and backend limitations are recorded in [APK-BUILD.md](APK-BUILD.md).
+
 From android-app in PowerShell:
 
 ```powershell
-.\gradlew.bat testDebugUnitTest assembleDebug
+.\gradlew.bat testParentDebugUnitTest testChildDebugUnitTest
+.\gradlew.bat assembleParentDebug assembleChildDebug
 ```
 
-Output: app/build/outputs/apk/debug/app-debug.apk. Install with `adb install -r app/build/outputs/apk/debug/app-debug.apk`, or copy it to each phone and permit installation from that trusted source. Debug signing is for development. Do not distribute a build pointing at someone else's backend.
+Outputs: `app/build/outputs/apk/parent/debug/app-parent-debug.apk` and `app/build/outputs/apk/child/debug/app-child-debug.apk`. Install each role on its intended phone with `adb -s SERIAL install -r PATH`, or copy it to that phone and permit installation from that trusted source. Debug signing is for development. `assembleUniversalDebug` builds the original two-mode identity at `app/build/outputs/apk/universal/debug/app-universal-debug.apk`; an already paired universal installation can upgrade with that identity instead of moving credentials between app IDs. Do not distribute a build pointing at someone else's backend.
 
 ## Signed release APK
 
@@ -33,10 +38,11 @@ Use Android Studio: Build → Generate Signed App Bundle or APK → APK → Crea
 For CLI release signing, copy keystore.properties.example to ignored keystore.properties and configure your private keystore path and credentials locally. Then:
 
 ```powershell
-.\gradlew.bat testDebugUnitTest assembleRelease
+.\gradlew.bat testParentDebugUnitTest testChildDebugUnitTest
+.\gradlew.bat assembleParentRelease assembleChildRelease
 ```
 
-Without keystore.properties Gradle produces an **unsigned** release artifact. It is not an installable signed release. With signing configured, verify using SDK `apksigner verify --verbose app/build/outputs/apk/release/app-release.apk`. Never commit secrets or use a generated development signing key as a claimed production identity. Release signing and installation require your keystore and physical devices; they cannot be certified by source compilation.
+Without keystore.properties Gradle produces **unsigned** release artifacts. With signing configured, verify each role using SDK `apksigner verify --verbose`, for example `app/build/outputs/apk/parent/release/app-parent-release.apk`. Never commit secrets or use a generated development signing key as a claimed production identity. Release signing and installation require your keystore and physical devices; they cannot be certified by source compilation.
 
 ## Required hardware acceptance tests
 

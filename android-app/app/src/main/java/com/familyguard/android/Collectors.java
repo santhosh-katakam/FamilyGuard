@@ -75,6 +75,18 @@ final class Collectors {
     Set<String> current = new HashSet<>();
     for (ResolveInfo info : pm.queryIntentActivities(intent, 0))
       current.add(info.activityInfo.packageName);
+    for (String social :
+        List.of(
+            "com.whatsapp",
+            "com.instagram.android",
+            "com.snapchat.android",
+            "org.telegram.messenger")) {
+      try {
+        pm.getApplicationInfo(social, 0);
+        current.add(social);
+      } catch (PackageManager.NameNotFoundException ignored) {
+      }
+    }
     var state = c.getSharedPreferences("apps", 0);
     Set<String> old = new HashSet<>(state.getStringSet("known", Set.of()));
     for (String pkg : current) {

@@ -24,7 +24,7 @@ The services were created directly through Render's API using the repository con
 - Live frontend returned HTTP 200, and its deployed JavaScript contains the actual API origin with no setup placeholder.
 - The Android debug APK was rebuilt with both deployed URLs and its debug signature verified.
 
-These are HTTP/API and artifact checks. Browser visual testing, Android permissions, physical-device pairing, background collection and offline synchronization still need real-device acceptance. Background FCM push and production signing remain outside this test deployment.
+These are HTTP/API and artifact checks. Browser visual testing, Android permissions, physical-device pairing, background collection and offline synchronization still need real-device acceptance. The later native alert upgrade uses the existing stack without a push provider; see [REALTIME-NOTIFICATIONS.md](REALTIME-NOTIFICATIONS.md). Production signing remains an operator step.
 
 ## Parent account and private files
 

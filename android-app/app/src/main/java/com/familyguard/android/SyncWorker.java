@@ -8,6 +8,27 @@ import java.util.concurrent.*;
 import org.json.*;
 
 public class SyncWorker extends Worker {
+  static final ScheduledExecutorService FLUSH = Executors.newSingleThreadScheduledExecutor();
+  static ScheduledFuture<?> activityFlush;
+
+  static synchronized void scheduleActivity(Context context) {
+    Context c = context.getApplicationContext();
+    if (activityFlush != null) activityFlush.cancel(false);
+    activityFlush =
+        FLUSH.schedule(
+            () ->
+                WorkManager.getInstance(c)
+                    .enqueueUniqueWork(
+                        "familyguard-sync",
+                        ExistingWorkPolicy.APPEND_OR_REPLACE,
+                        new OneTimeWorkRequest.Builder(SyncWorker.class)
+                            .setConstraints(network())
+                            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
+                            .build()),
+            300,
+            TimeUnit.MILLISECONDS);
+  }
+
   public SyncWorker(@NonNull Context c, @NonNull WorkerParameters p) {
     super(c, p);
   }

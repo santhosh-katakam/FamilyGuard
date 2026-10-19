@@ -1,0 +1,15 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
+ <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" tools:node="remove" tools:ignore="ProtectedPermissions"/>
+ <uses-permission android:name="android.permission.READ_PHONE_STATE" tools:node="remove"/>
+ <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" tools:node="remove"/>
+ <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" tools:node="remove"/>
+ <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" tools:node="remove"/>
+ <queries tools:node="remove"/>
+ <application>
+  <activity android:name=".ChildActivity" tools:node="remove"/>
+  <service android:name=".LocationService" tools:node="remove"/>
+  <service android:name=".NotificationEventsService" tools:node="remove"/>
+  <receiver android:name=".PackageReceiver" tools:node="remove"/>
+  <receiver android:name=".CallStateReceiver" tools:node="remove"/>
+ </application>
+</manifest>

@@ -5,6 +5,7 @@
 **/.gradle/
 **/local.properties
 **/.env
+**/.env.local
 **/google-services.json
 **/*.jks
 **/*.keystore

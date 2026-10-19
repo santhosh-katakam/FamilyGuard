@@ -96,6 +96,7 @@ class PairingController {
     events.deleteDeviceData();
     pairings.deleteAll();
     a.enabled = false;
+    events.eraseParentReceiver();
     a.email = "deleted@familyguard.invalid";
     a.passwordHash = Tokens.hash(Tokens.random());
     a.refreshHash = null;

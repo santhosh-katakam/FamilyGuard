@@ -5,9 +5,23 @@ if (localFile.exists()) localFile.withInputStream { local.load(it) }
 def signing = new Properties()
 def signingFile = rootProject.file('keystore.properties')
 if (signingFile.exists()) signingFile.withInputStream { signing.load(it) }
-def api = local.getProperty('familyguard.apiUrl', 'https://familyguard-api-REPLACE.onrender.com')
-def web = local.getProperty('familyguard.webUrl', 'https://familyguard-REPLACE.onrender.com')
-if (!api.startsWith('https://') || !web.startsWith('https://')) throw new GradleException('FamilyGuard requires HTTPS URLs')
+// BuildConfig is the only endpoint source used by the native API client and Admin WebView.
+// CLI properties override environment variables, then ignored local.properties.
+def endpoint = { String property, String environment ->
+ def raw = providers.gradleProperty(property).orNull ?: providers.environmentVariable(environment).orNull ?: local.getProperty(property)
+ def help = "Set ${property} in local.properties or with -P${property}, or set ${environment}, to your deployed HTTPS origin (without /api)."
+ if (!raw?.trim()) throw new GradleException(help)
+ URI uri
+ try { uri = new URI(raw.trim()) } catch (URISyntaxException ignored) { throw new GradleException(help) }
+ if (!'https'.equalsIgnoreCase(uri.scheme) || !uri.host || uri.userInfo || uri.query || uri.fragment ||
+     !(uri.rawPath in [null, '', '/']) || uri.port < -1 || uri.port == 0 || uri.port > 65535 ||
+     uri.host =~ /(?i)(REPLACE|YOUR[-_]|(^|\.)example(\.|$)|\.invalid$)/) {
+  throw new GradleException("Invalid ${property}. " + help)
+ }
+ return new URI('https', null, uri.host, uri.port, null, null, null).toASCIIString()
+}
+def api = endpoint('familyguard.apiUrl', 'FAMILYGUARD_API_URL')
+def web = endpoint('familyguard.webUrl', 'FAMILYGUARD_WEB_URL')
 android {
  namespace 'com.familyguard.android'
  compileSdk 36
@@ -15,13 +29,20 @@ android {
   applicationId 'com.familyguard.android'
   minSdk 26
   targetSdk 36
-  versionCode 1
-  versionName '1.0.0'
-  buildConfigField 'String', 'API_URL', '"' + api + '"'
-  buildConfigField 'String', 'WEB_URL', '"' + web + '"'
+  versionCode 2
+  versionName '1.1.0'
+  manifestPlaceholders = [appLabel: 'FamilyGuard']
+  buildConfigField 'String', 'API_URL', groovy.json.JsonOutput.toJson(api)
+  buildConfigField 'String', 'WEB_URL', groovy.json.JsonOutput.toJson(web)
   testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
  }
  buildFeatures { buildConfig true }
+ flavorDimensions += 'role'
+ productFlavors {
+  universal { dimension 'role'; isDefault true; buildConfigField 'String', 'APP_ROLE', '"both"' }
+  parent { dimension 'role'; applicationIdSuffix '.parent'; manifestPlaceholders = [appLabel: 'FamilyGuard Parent']; buildConfigField 'String', 'APP_ROLE', '"parent"' }
+  child { dimension 'role'; applicationIdSuffix '.child'; manifestPlaceholders = [appLabel: 'FamilyGuard Child']; buildConfigField 'String', 'APP_ROLE', '"child"' }
+ }
  compileOptions { coreLibraryDesugaringEnabled true; sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
  signingConfigs { if(signingFile.exists()) { release { storeFile rootProject.file(signing['storeFile']);storePassword signing['storePassword'];keyAlias signing['keyAlias'];keyPassword signing['keyPassword'] } } }
  buildTypes { release { minifyEnabled false; if(signingFile.exists()) signingConfig signingConfigs.release } }

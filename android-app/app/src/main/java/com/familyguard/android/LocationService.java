@@ -18,6 +18,9 @@ public class LocationService extends Service implements LocationListener {
             "location", "Visible location sharing", NotificationManager.IMPORTANCE_LOW));
   }
 
+  // Shared source is also analyzed for the parent flavor, which removes this component.
+  // The child/universal manifests explicitly declare the location service type.
+  @android.annotation.SuppressLint("ForegroundServiceType")
   public int onStartCommand(Intent i, int flags, int startId) {
     if (i != null && "STOP".equals(i.getAction())) {
       getSharedPreferences("consent", 0).edit().putBoolean("location", false).commit();

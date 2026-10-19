@@ -36,7 +36,7 @@ Tests validate server allowlists, encryption, data denial and geofence transitio
 
 Created SecureStore.java, QueueDb.java, Events.java, SyncWorker.java and CollectWorker.java; backend Realtime.java and Maintenance.java. Queue payloads use Android Keystore AES-GCM; offline collection has its own periodic worker without a connectivity constraint; uploads require connectivity and delete only acknowledged UUIDs. Local queue retention is seven days/20,000 records. Duplicate receipts stay 91 days. Location history and other activity expire according to settings.
 
-Open-parent-dashboard alerts use persisted alert records, rate limiting, one-use authenticated WebSocket tickets, reconnects and polling fallback. Missing sync is inferred after 45 minutes, not instant connectivity detection. No Firebase project exists and background FCM push is not implemented/configured; it is a stated remaining integration, not a simulated success.
+Open-parent-dashboard alerts use persisted alert records, rate limiting, one-use authenticated WebSocket tickets, reconnects and polling fallback. Missing sync is inferred after 45 minutes, not instant connectivity detection. The subsequent native parent upgrade adds a visible foreground WebSocket receiver, PostgreSQL catch-up feed and Android notification channels, with no external push provider. See [REALTIME-NOTIFICATIONS.md](REALTIME-NOTIFICATIONS.md).
 
 ## Phase 7 — hardening, verification, logging
 

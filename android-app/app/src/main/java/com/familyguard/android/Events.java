@@ -41,6 +41,13 @@ final class Events {
             QueueDb.get(c).events().insert(row);
             QueueDb.get(c).events().trim();
             SyncWorker.scheduleNow(c);
+            // A coalesced follow-up prevents activity arriving during a running sync from
+            // being left behind by KEEP. Routine status/snapshot collection never chains itself.
+            if (category.equals("notifications")
+                || category.equals("calls")
+                || category.equals("location")
+                || category.equals("apps") && !kind.equals("SNAPSHOT"))
+              SyncWorker.scheduleActivity(c);
           } catch (Exception ex) {
             c.getSharedPreferences("state", 0)
                 .edit()

@@ -4,7 +4,7 @@
 
 A one-parent / one-child family safety monorepo with a React dashboard, authenticated Spring Boot API, PostgreSQL migrations, and a real native Java Android module. All dashboard data comes from the API; no activity fixtures or simulated monitoring are shipped.
 
-**Status:** implemented baseline requiring deployment and real-device acceptance. See [verification results](docs/VERIFICATION.md) for commands actually run and outstanding checks. Do not treat code generation as production certification. Background FCM push is not configured; alerts appear in the open dashboard and persisted alert list.
+**Status:** implemented baseline requiring real-device acceptance. Native Parent Mode now receives authenticated WebSocket signals and displays Android notifications through a user-started visible receiver, with encrypted catch-up receipts. This uses the existing stack and no push provider. See [native alert setup and limitations](docs/REALTIME-NOTIFICATIONS.md) and [verification results](docs/VERIFICATION.md). Android background restrictions and sleeping/offline services can delay alerts; physical delivery is not yet verified.
 
 ## Project
 
@@ -16,6 +16,8 @@ A one-parent / one-child family safety monorepo with a React dashboard, authenti
 - docs/ — [Android/APK instructions](docs/ANDROID.md), [Render deployment](docs/DEPLOYMENT.md), [security boundaries](docs/SECURITY.md), [API](docs/API.md), [phase file inventory](docs/PHASES.md).
 
 ## Local development in VS Code
+
+For this Windows workspace, use the [local startup and testing guide](docs/LOCAL-DEVELOPMENT.md). The startup script creates a separate PostgreSQL cluster, selects unused API/database ports, and saves local login details outside Git.
 
 Install Java 21, Maven 3.9+, Node 22.12+, and PostgreSQL 17 (or start Docker Desktop). Open familyguard/ in VS Code.
 
@@ -36,7 +38,7 @@ npm test
 npm run dev
 ```
 
-Open **http://localhost:5173** and use the configured Parent Admin credentials. Vite proxies /api and /ws to localhost:8080. Use the same exact origin configured for CORS/cookie refresh. Before pairing, the dashboard contains no device or monitoring data. Use /child-setup for setup guidance; all actual pairing and Android system permissions happen in the APK.
+Open **http://localhost:5173** and use the configured Parent Admin credentials. Vite proxies /api and /ws to localhost:8080 by default; set VITE_DEV_API_TARGET in frontend/.env.local for another local API port. Use the same exact origin configured for CORS/cookie refresh. Before pairing, the dashboard contains no device or monitoring data. Open **http://localhost:5173/child** to test child screens in the browser; the old /child-setup route redirects there. Real device pairing and Android system permissions happen in the APK.
 
 For Android/Render testing use real HTTPS URLs. Configure android-app/local.properties, build a debug APK, choose Child Mode, accept the notice and pair using a parent-generated code. See [full setup and signed release steps](docs/ANDROID.md). Location is stale after two minutes, connectivity is inferred from recent sync (45-minute offline threshold), and Android background work is best effort. Devices 500+ km apart work through the same HTTPS server when connected; no local-network proximity is required.
 

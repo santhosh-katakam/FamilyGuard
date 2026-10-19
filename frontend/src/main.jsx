@@ -50,6 +50,8 @@ import "leaflet/dist/leaflet.css";
 import { api, baseURL, setToken, message } from "./api";
 import { usageRows, localDay, minutes, installed, stale } from "./data";
 import "./styles.css";
+import { ChildPortal } from "./ChildPortal";
+import { ParentReceiverSettings } from "./ParentReceiverSettings";
 const nav = [
   ["", "Dashboard", LayoutDashboard],
   ["location", "Live Location", MapPin],
@@ -175,52 +177,16 @@ function Login({ onLogin }) {
           <LockKeyhole size={15} /> Only your configured Parent Admin can sign
           in.
         </div>
-        <NavLink to="/child-setup">
-          Setting up a child device? <ChevronRight size={16} />
+        <NavLink to="/child">
+          Setting up a child device? Open child portal{" "}
+          <ChevronRight size={16} />
         </NavLink>
       </form>
     </main>
   );
 }
-function ChildSetup() {
-  return (
-    <main className="setup">
-      <Brand />
-      <section className="panel">
-        <span className="eyebrow">CHILD DEVICE SETUP</span>
-        <h1>
-          Your device.
-          <br />
-          Your permissions.
-        </h1>
-        <p>
-          FamilyGuard shares only the activity you enable. The child app always
-          shows its supervision status and lets you pause collection.
-        </p>
-        {[
-          "Install the FamilyGuard APK on the Android phone.",
-          "Choose Child Mode and read the supervision notice.",
-          "Enter the 12-character code from the parent’s Device Management page.",
-          "Choose permissions in Android Settings, then start monitoring.",
-        ].map((s, i) => (
-          <div className="step" key={s}>
-            <b>{i + 1}</b>
-            <p>{s}</p>
-          </div>
-        ))}
-        <div className="notice">
-          This browser cannot monitor Android activity. Pairing and system
-          permissions are handled in the native Android app. Notification access
-          shares event counts, never private chat histories.
-        </div>
-        <NavLink to="/">
-          Return to parent sign in <ArrowUpRight size={16} />
-        </NavLink>
-      </section>
-    </main>
-  );
-}
 function App() {
+  const { pathname } = useLocation();
   const [authenticated, authSet] = useState(false),
     [checking, checkingSet] = useState(true);
   useEffect(() => {
@@ -239,7 +205,9 @@ function App() {
     window.addEventListener("session-expired", expired);
     return () => window.removeEventListener("session-expired", expired);
   }, []);
-  if (location.pathname === "/child-setup") return <ChildSetup />;
+  if (pathname === "/child-setup") return <Navigate to="/child" replace />;
+  if (pathname === "/child" || pathname.startsWith("/child/"))
+    return <ChildPortal />;
   if (checking)
     return (
       <div className="boot">
@@ -1221,6 +1189,7 @@ function Preferences({ data, settings }) {
           )}
         </form>
       )}
+      {settings && <ParentReceiverSettings />}
       {settings && (
         <section className="panel spaced">
           <h2>Delete account & activity</h2>
