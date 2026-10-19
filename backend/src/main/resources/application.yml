@@ -1,0 +1,42 @@
+server:
+  port: ${PORT:8080}
+  forward-headers-strategy: framework
+  error:
+    include-message: never
+spring:
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://${DATABASE_HOST:localhost}:${DATABASE_PORT:5432}/${DATABASE_NAME:familyguard}}
+    username: ${DATABASE_USER:familyguard}
+    password: ${DATABASE_PASSWORD:}
+    hikari:
+      maximum-pool-size: 5
+      connection-timeout: 10000
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  servlet:
+    multipart:
+      max-file-size: 1MB
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+app:
+  admin-email: ${ADMIN_EMAIL}
+  admin-password: ${ADMIN_PASSWORD}
+  jwt-secret: ${JWT_SECRET}
+  encryption-key: ${DATA_ENCRYPTION_KEY}
+  origins: ${FRONTEND_ORIGIN:http://localhost:5173}
+  secure-cookies: ${SECURE_COOKIES:true}
+  offline-minutes: ${OFFLINE_MINUTES:45}
+logging:
+  level:
+    root: INFO
+    org.springframework.web: INFO
+    org.springframework.security: INFO
+    org.hibernate: WARN

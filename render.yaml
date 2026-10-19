@@ -1,0 +1,63 @@
+databases:
+  - name: familyguard-db
+    databaseName: familyguard
+    user: familyguard
+    plan: free
+    region: singapore
+    ipAllowList: []
+services:
+  - type: web
+    name: familyguard-api
+    runtime: docker
+    plan: free
+    region: singapore
+    rootDir: backend
+    healthCheckPath: /actuator/health
+    envVars:
+      - key: DATABASE_HOST
+        fromDatabase: {name: familyguard-db, property: host}
+      - key: DATABASE_PORT
+        fromDatabase: {name: familyguard-db, property: port}
+      - key: DATABASE_NAME
+        fromDatabase: {name: familyguard-db, property: database}
+      - key: DATABASE_USER
+        fromDatabase: {name: familyguard-db, property: user}
+      - key: DATABASE_PASSWORD
+        fromDatabase: {name: familyguard-db, property: password}
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: DATA_ENCRYPTION_KEY
+        sync: false
+      - key: FRONTEND_ORIGIN
+        sync: false
+      - key: SECURE_COOKIES
+        value: "true"
+  - type: web
+    name: familyguard
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm ci --no-audit --no-fund && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_URL
+        sync: false
+      - key: NODE_VERSION
+        value: "24.21.0"
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    headers:
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: Referrer-Policy
+        value: strict-origin-when-cross-origin
+      - path: /*
+        name: Permissions-Policy
+        value: camera=(), microphone=(), geolocation=()

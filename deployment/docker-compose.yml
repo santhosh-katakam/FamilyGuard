@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: familyguard
+      POSTGRES_USER: familyguard
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:?Set DATABASE_PASSWORD in deployment/.env}
+    ports: ["127.0.0.1:5432:5432"]
+    volumes: ["postgres_data:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U familyguard"]
+      interval: 5s
+      retries: 10
+volumes:
+  postgres_data:

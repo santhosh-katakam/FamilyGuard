@@ -1,0 +1,15 @@
+**/node_modules/
+**/dist/
+**/target/
+**/build/
+**/.gradle/
+**/local.properties
+**/.env
+**/google-services.json
+**/*.jks
+**/*.keystore
+**/keystore.properties
+.idea/
+.vscode/
+*.log
+deployment/.private/
